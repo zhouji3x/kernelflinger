@@ -68,6 +68,7 @@
 #include "protocol.h"
 #include "uefi_utils.h"
 #include "security_interface.h"
+#include "timer.h"
 
 /* Ensure this is embedded in the EFI binary somewhere */
 static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
@@ -998,6 +999,10 @@ static EFI_STATUS load_image(VOID *bootimage, UINT8 boot_state,
                         efi_perror(ret, L"Continue to boot");
 #endif
                 }
+#ifdef USE_AVB
+                set_boottime_stamp(TM_VERIFY_TOS_DONE);
+#endif
+
         }
 #endif
 
@@ -1400,6 +1405,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
         CHAR16 *name = NULL;
         EFI_RESET_TYPE resetType;
 
+        set_boottime_stamp(TM_EFI_MAIN);
         /* gnu-efi initialization */
         InitializeLib(image, sys_table);
 
@@ -1573,7 +1579,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
         debug(L"Loading boot image");
 
 #ifdef USE_AVB
+        set_boottime_stamp(TM_AVB_START);
         ret = avb_load_verify_boot_image(boot_target, target_path, &bootimage, oneshot, &boot_state, &slot_data);
+        set_boottime_stamp(TM_VERIFY_BOOT_DONE);
 #else
         ret = load_boot_image(boot_target, target_path, &bootimage, oneshot);
         FreePool(target_path);
