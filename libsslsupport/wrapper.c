@@ -831,3 +831,10 @@ void *memchr(const void *s, int c, size_t n)
 
 	return NULL;
 }
+
+
+void perror ( const char * str )
+{
+	error(L"%a: errno=%d", str, errno);
+}
+
