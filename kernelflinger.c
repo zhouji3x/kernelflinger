@@ -1122,39 +1122,6 @@ static VOID boot_error(enum ux_error_code error_code, UINT8 boot_state,
 		halt_system();
 }
 
-#ifdef BOOTLOADER_POLICY_EFI_VAR
-/* Flash the OEMVARS that include the bootloader policy.  */
-static void flash_bootloader_policy(__attribute__((__unused__)) UINT8 boot_state)
-{
-	VOID *bootimage = NULL;
-	EFI_STATUS ret;
-	UINT8 new_boot_state = boot_state;
-	AvbSlotVerifyData *slot_data;
-
-	debug(L"Loading bootloader policy using AVB");
-	ret = avb_load_verify_boot_image(NORMAL_BOOT, NULL, &bootimage, FALSE, &new_boot_state, &slot_data);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Failed to load the boot image using AVB to get bootloader policy");
-		goto out;
-	}
-
-	/* The bootloader policy EFI variables are using the
-	 * FASTBOOT_GUID.
-	 */
-	set_image_oemvars_nocheck(bootimage, &fastboot_guid);
-
-	/* It might not be an error.  Some devices have a buggy BIOS
-	 * that does not allowed secured EFI variables to be
-	 * flashed.
-	 */
-	if (!blpolicy_is_flashed())
-		debug(L"Bootloader Policy EFI variables are not flashed");
-out:
-	if (slot_data != NULL)
-		avb_slot_verify_data_free(slot_data);
-}
-#endif
-
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 {
 	EFI_STATUS ret;
@@ -1329,12 +1296,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		FreePool(target_path);
 		reboot(NULL, EfiResetCold);
 	}
-
-#ifdef BOOTLOADER_POLICY_EFI_VAR
-	/* Ensure that the bootloader policy is set. */
-	if (!device_is_provisioning() && !blpolicy_is_flashed())
-		flash_bootloader_policy(boot_state);
-#endif
 
 	if (boot_target == FASTBOOT) {
 		debug(L"entering Fastboot mode");
