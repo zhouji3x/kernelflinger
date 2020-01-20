@@ -37,6 +37,8 @@
 #include "authenticated_action.h"
 #include "fastboot_flashing.h"
 
+#include "rma_certificate.h"
+
 #define NONCE_RANDOM_BYTE_LENGTH	16
 #define NONCE_EXPIRATION_SEC		5 * 60 * 60;
 
@@ -120,20 +122,16 @@ char *authenticated_action_new_nonce(char *action_name)
 
 static EFI_STATUS verify_payload(char *payload, UINTN size)
 {
-	char *host_random;
-
 	if (payload[size - 1] != '\0' ||
-	    memcmp(payload, current_nonce, strlen(current_nonce)) ||
-	    payload[strlen(current_nonce)] != ':')
+	    memcmp(payload, current_nonce, strlen(current_nonce)))
 		goto parse_error;
 
-	host_random = payload + strlen(current_nonce) + 1;
-	if (strlen((CHAR8 *)host_random) != NONCE_RANDOM_BYTE_LENGTH * 2)
-		goto parse_error;
 
 	return EFI_SUCCESS;
 
 parse_error:
+	debug(L"current=%a\n", current_nonce);
+	debug(L"payload=%a\n", payload);
 	debug(L"Failed to parse the token response payload");
 	return EFI_INVALID_PARAMETER;
 }
@@ -161,6 +159,100 @@ expired:
 	return TRUE;
 }
 
+EFI_STATUS verify_rma_certificate(const unsigned char *cert_sha256, UINTN cert_size,
+						const VOID *rma_cert_data, UINTN rma_cert_size,
+						VOID **data_p, int *size)
+{
+	RMA_CERTIFICATE *rma_cert = NULL;
+	EVP_MD_CTX mdctx;
+	X509_STORE *store = NULL;
+	X509_STORE_CTX cert_ctx;
+	X509 *x509 = NULL;
+	EVP_PKEY *pkey;
+	unsigned char digest[SHA256_DIGEST_LENGTH];
+	unsigned int len;
+	int ret;
+
+	*data_p = NULL;
+	if (cert_size != SHA256_DIGEST_LENGTH) {
+		error(L"Invalid SHA256 length for trusted certificate");
+		goto done;
+	}
+
+	rma_cert = d2i_RMA_CERTIFICATE(NULL, (const unsigned char **)&rma_cert_data, rma_cert_size);
+	if (rma_cert == NULL)
+		return EFI_INVALID_PARAMETER;
+
+	x509 = rma_cert->x509;
+	if (!X509_digest(x509, EVP_sha256(), digest, &len)) {
+		debug(L"Failed to compute X509 digest");
+		goto done;
+	}
+
+	if (memcmp(cert_sha256, digest, sizeof(digest))) {
+		debug(L"x509 digest verify failed !");
+		goto done;
+	}
+
+	pkey = X509_get_pubkey(x509);
+	if (pkey == NULL) {
+		error(L"No pubkey !");
+		goto done;
+	}
+
+	EVP_MD_CTX_init(&mdctx);
+	ret = EVP_VerifyInit_ex(&mdctx, EVP_sha256(), NULL);
+	if (!ret)
+		goto done;
+
+	ret = EVP_VerifyUpdate(&mdctx, rma_cert->nonce->data, rma_cert->nonce->length);
+	if (!ret)
+		goto done;
+
+	ret =  EVP_VerifyFinal(&mdctx, rma_cert->digest->data, rma_cert->digest->length, pkey);
+	if (!ret) {
+		error(L"Fail to verify the data");
+		goto done;
+	}
+	EVP_MD_CTX_cleanup(&mdctx);
+
+	store = X509_STORE_new();
+	if (!store) {
+		error(L"Failed to create x509 store");
+		goto done;
+	}
+	ret = X509_STORE_add_cert(store, x509);
+	if (ret != 1)
+		goto done;
+
+	if (!X509_STORE_CTX_init(&cert_ctx, store, x509, NULL)) {
+		error(L"X509_STORE_CTX_init failed");
+		goto done;
+	}
+	ret = X509_verify_cert(&cert_ctx);
+	if (ret <= 0) {
+		error(L"verify cert failed");
+		goto done;
+	}
+	X509_STORE_CTX_cleanup(&cert_ctx);
+
+	*size = rma_cert->nonce->length + 1;
+	*data_p = AllocatePool(*size);
+	if (*data_p == NULL) {
+		error(L"Failed to allocate data buffer");
+		goto done;
+	}
+	memcpy(*data_p, rma_cert->nonce->data, *size);
+
+done:
+	if (rma_cert != NULL)
+		RMA_CERTIFICATE_free(rma_cert);
+	if (store != NULL)
+		X509_STORE_free(store);
+
+	return (*data_p != NULL) ? EFI_SUCCESS : EFI_INVALID_PARAMETER;
+}
+
 static EFI_STATUS verify_token(void *data, UINTN size)
 {
 	EFI_STATUS ret;
@@ -175,7 +267,7 @@ static EFI_STATUS verify_token(void *data, UINTN size)
 		return EFI_SECURITY_VIOLATION;
 	}
 
-	ret = verify_pkcs7(oak_data, oak_size, data, size,
+	ret = verify_rma_certificate(oak_data, oak_size, data, size,
 			   (VOID **)&payload, &payload_size);
 	FreePool(oak_data);
 	if (EFI_ERROR(ret)) {
