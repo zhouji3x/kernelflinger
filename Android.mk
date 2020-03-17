@@ -176,7 +176,7 @@ VERITY_CERT := $(kf_intermediates)/verity.cer
 PADDED_VERITY_CERT := $(kf_intermediates)/verity.padded.cer
 OEMCERT_OBJ := $(kf_intermediates)/oemcert.o
 
-$(VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $(OPENSSL)
+$(VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(PADDED_VERITY_CERT): $(VERITY_CERT)
@@ -414,7 +414,7 @@ ABL_VERITY_CERT := $(keys4abl_intermediates)/verity.cer
 ABL_PADDED_VERITY_CERT := $(keys4abl_intermediates)/verity.padded.cer
 ABL_OEMCERT_OBJ := $(keys4abl_intermediates)/oemcert.o
 
-$(ABL_VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $(OPENSSL)
+$(ABL_VERITY_CERT): $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(ABL_PADDED_VERITY_CERT): $(ABL_VERITY_CERT)
@@ -566,7 +566,7 @@ CIC_VERITY_CERT := $(keys4cic_intermediates)/verity.cer
 CIC_PADDED_VERITY_CERT := $(keys4cic_intermediates)/verity.padded.cer
 CIC_OEMCERT_OBJ := $(keys4cic_intermediates)/oemcert.o
 
-$(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem $(OPENSSL)
+$(CIC_VERITY_CERT): $(INTEL_PATH_BUILD)/testkeys/xbl_default.x509.pem
 	$(transform-pem-cert-to-der-cert)
 
 $(CIC_PADDED_VERITY_CERT): $(CIC_VERITY_CERT)
