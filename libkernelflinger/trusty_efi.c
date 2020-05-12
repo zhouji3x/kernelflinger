@@ -32,6 +32,7 @@
 #include <efiapi.h>
 #include <efilib.h>
 #include <uefi_utils.h>
+#include <openssl/crypto.h>
 
 #include "vars.h"
 #include "lib.h"
@@ -377,7 +378,6 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
                         (UINTN)load_base + tos_header->entry_offset);
         debug(L"Call TOS loader entry_addr = 0x%x", call_entry);
         tos_ret = call_entry(startup_info_v2);
-
         if (tos_ret) {
                 efi_perror(tos_ret, L"Load and start Trusty OS failed");
                 ret = EFI_INVALID_PARAMETER;
@@ -386,6 +386,8 @@ static EFI_STATUS start_tos_image(IN VOID *bootimage)
         debug(L"TOS launch succeeded!");
 
 cleanup:
+        OPENSSL_cleanse(startup_info_v2->seed_list, sizeof(startup_info_v2->seed_list));
+        OPENSSL_cleanse(startup_info_v2->rpmb_key, sizeof(startup_info_v2->rpmb_key));
         stop_bls_proto();
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"Error has occurred!");
