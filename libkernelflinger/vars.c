@@ -798,9 +798,7 @@ char *get_serialno_var()
 char *get_serial_number(void)
 {
 	static char bios_serialno[SERIALNO_MAX_SIZE + 1];
-	static char serialno[SERIALNO_MAX_SIZE + 1] =
-				{'0', '0', 'b', 'a', 'd', 'b', 'i', 'o', 's',
-				 '0', '0', 'b', 'a', 'd', 'b', 'i', 'o', 's', '0', '0'};
+	static char serialno[SERIALNO_MAX_SIZE + 1];
 	char *pos;
 	unsigned int zeroes = 0;
 	UINTN len;
