@@ -142,8 +142,11 @@ static void EFIAPI data_received(__attribute__((__unused__)) EFI_EVENT evt, void
 
 	if (EFI_ERROR(token->token.CompletionToken.Status)) {
 		rx.receiving = FALSE;
-		efi_perror(token->token.CompletionToken.Status,
-			   L"TCP data received failed");
+		ret = uefi_call_wrapper(tcp_connection->Close, 2,
+					tcp_connection, &close_token);
+		if (EFI_ERROR(ret))
+			efi_perror(ret, L"TCP Close failed");
+
 		return;
 	}
 
