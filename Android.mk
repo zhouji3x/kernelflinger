@@ -157,7 +157,7 @@ LOCAL_MODULE := kernelflinger-$(TARGET_BUILD_VARIANT)
 
 
 # if dm-verity is disabled for eng purpose skip the oem-cert
-ifeq ($(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SUPPORTS_VERITY), true)
+ifeq ($(PRODUCT_SUPPORTS_VERITY), true)
 kf_intermediates := $(call intermediates-dir-for,EFI,kernelflinger)
 
 VERITY_CERT := $(kf_intermediates)/verity.cer
@@ -256,7 +256,7 @@ endif
 
 LOCAL_CFLAGS := $(SHARED_CFLAGS)
 
-ifeq ($(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SUPPORTS_VERITY), true)
+ifeq ($(PRODUCT_SUPPORTS_VERITY), true)
 LOCAL_OBJCOPY_FLAGS := -j .oemkeys
 endif
 
@@ -395,7 +395,7 @@ ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
     LOCAL_SRC_FILES += \
         ux.c
 endif
-ifeq ($(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SUPPORTS_VERITY),true)
+ifeq ($(PRODUCT_SUPPORTS_VERITY),true)
 keys4abl_intermediates := $(call intermediates-dir-for,ABL,keys)
 
 ABL_VERITY_CERT := $(keys4abl_intermediates)/verity.cer
@@ -504,7 +504,7 @@ ifneq ($(strip $(KERNELFLINGER_USE_UI)),false)
         ux.c
 endif
 
-ifeq ($(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_SUPPORTS_VERITY),true)
+ifeq ($(PRODUCT_SUPPORTS_VERITY),true)
 LOCAL_GENERATED_SOURCES := $(ABL_OEMCERT_OBJ)
 endif
 
