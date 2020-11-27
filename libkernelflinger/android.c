@@ -115,6 +115,7 @@ struct setup_header {
         UINT64 pref_address;
         UINT32 init_size;
         UINT32 handover_offset;
+        UINT32 kernel_info_offset; /* Offset of the kernel_info, From Proto 2.15+(Kernel 5.5) */
 } __attribute__((packed));
 
 struct efi_info {
