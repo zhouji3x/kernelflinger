@@ -1239,6 +1239,8 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
         UINT32 setup_size;
         UINT32 ksize;
         UINT32 koffset;
+        size_t setup_header_size;
+        size_t setup_header_end;
 
         aosp_header = (struct boot_img_hdr *)bootimage;
         buf = (struct boot_params *)(bootimage + aosp_header->page_size);
@@ -1305,8 +1307,10 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
                 goto out;
 
         /* See Linux Documentation/x86/boot.txt */
-        ret = memcpy_s(&boot_params->hdr, sizeof(boot_params->hdr), (CHAR8 *)(&buf->hdr),
-                       ((CHAR8 *)buf)[0x201] + 0x202 - offsetof(struct boot_params, hdr));
+        setup_header_end = *((CHAR8 *)buf+0x201) + 0x202;
+        setup_header_size = setup_header_end - offsetof(struct boot_params, hdr);
+        ret = memcpy_s(&boot_params->hdr, sizeof(boot_params->hdr) + sizeof(boot_params->_pad7),
+                (CHAR8 *)(&buf->hdr), setup_header_size);
         if (EFI_ERROR(ret))
                 goto out;
         boot_params->hdr.code32_start = (UINT32)((UINT64)kernel_start);
