@@ -98,6 +98,19 @@ EFI_STATUS change_device_state(enum device_state new_state, BOOLEAN interactive)
 		ui_print(L"No userdata partition to erase.");
 	else
 		info(L"Erase done.");
+
+	info(L"Erasing metadata...");
+	ret = erase_by_label(L"metadata");
+	if (EFI_ERROR(ret) && ret != EFI_NOT_FOUND) {
+		if (interactive)
+			fastboot_fail("Failed to wipe metadata.");
+		return ret;
+	}
+
+	if (ret == EFI_NOT_FOUND)
+		ui_print(L"No metadata partition to erase.");
+	else
+		info(L"Erase done.");
 	}
 #endif
 
