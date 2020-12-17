@@ -42,7 +42,7 @@
 
 /* Constants.  */
 const CHAR16 *SLOT_STORAGE_PART = MISC_LABEL;
-#define MAX_NB_SLOT	ARRAY_SIZE(((struct AvbABData *)0)->slots)
+#define MAX_NB_SLOT	ARRAY_SIZE(((struct bootloader_control *)0)->slot_info)
 #define MAX_LABEL_LEN	64
 
 static const UINTN MAX_PRIORITY    = 15;
@@ -53,10 +53,6 @@ static const UINTN SUFFIX_LEN      = 2;
 
 #define SUFFIX_INDEX(suffix) (suffix[1] - SLOT_START_CHAR)
 
-/* A/B metadata structure. */
-typedef struct AvbABSlotData slot_metadata_t;
-typedef struct AvbABData boot_ctrl_t;
-
 /* Internal. */
 static BOOLEAN is_used;
 static char _suffixes[MAX_NB_SLOT * sizeof(SUFFIX_FMT)];
@@ -66,8 +62,8 @@ static char *cur_suffix;
 
 struct AvbABOps ab_ops;
 static AvbOps *ops;
-static boot_ctrl_t boot_ctrl;
-static AvbABSlotData *slots = boot_ctrl.slots;
+static bootloader_control boot_ctrl;
+static AvbABSlotData *slots = boot_ctrl.slot_info;
 
 static const CHAR16 *label_with_suffix(const CHAR16 *label, const char *suffix)
 {
@@ -224,7 +220,6 @@ static EFI_STATUS select_highest_priority_slot(void)
 EFI_STATUS slot_init(void)
 {
 	EFI_STATUS ret;
-	CHAR8 *magic;
 	UINTN i;
 	UINTN nb_slot;
 
@@ -266,13 +261,9 @@ EFI_STATUS slot_init(void)
 		debug(L"No A/B metadata");
 		return EFI_SUCCESS;
 	}
-	debug(L"Avb magic 0x%x, 0x%x, 0x%x, 0x%x", boot_ctrl.magic[0], boot_ctrl.magic[1], boot_ctrl.magic[2], boot_ctrl.magic[3]);
+	debug(L"Avb magic 0x%x", boot_ctrl.magic);
 
-	magic = (CHAR8 *)AVB_AB_MAGIC;
-	if ((boot_ctrl.magic[0] == magic[0]) && \
-		(boot_ctrl.magic[1] == magic[1]) && \
-		(boot_ctrl.magic[2] == magic[2]) && \
-		(boot_ctrl.magic[3] == magic[3])) {
+	if (boot_ctrl.magic == BOOT_CTRL_MAGIC) {
 		debug(L"Avb magic is right");
 	} else {
 		error(L"A/B metadata is corrupted, re-initialize");
@@ -554,7 +545,6 @@ void slot_set_active_cached(const char *suffix)
 EFI_STATUS slot_init_use_misc(void)
 {
 	EFI_STATUS ret;
-	CHAR8 *magic;
 
 	if (!use_slot())
 		return EFI_SUCCESS;
@@ -571,15 +561,10 @@ EFI_STATUS slot_init_use_misc(void)
 		debug(L"No A/B metadata");
 		return EFI_SUCCESS;
 	}
-	debug(L"Avb magic 0x%x, 0x%x, 0x%x, 0x%x", boot_ctrl.magic[0], boot_ctrl.magic[1], boot_ctrl.magic[2], boot_ctrl.magic[3]);
+	debug(L"Avb magic 0x%x", boot_ctrl.magic);
 
-	magic = (CHAR8 *)AVB_AB_MAGIC;
-	if ((boot_ctrl.magic[0] == magic[0]) && \
-		(boot_ctrl.magic[1] == magic[1]) && \
-		(boot_ctrl.magic[2] == magic[2]) && \
-		(boot_ctrl.magic[3] == magic[3])) {
+	if (boot_ctrl.magic == BOOT_CTRL_MAGIC)
 		debug(L"Avb magic is right");
-	}
 
 	select_highest_priority_slot();
 	return EFI_SUCCESS;

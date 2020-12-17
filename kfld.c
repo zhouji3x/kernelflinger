@@ -102,7 +102,7 @@ EFI_STATUS avb_ab_read_misc(AvbABData *avbABData)
 		return ret;
 	}
 
-	if (memcmp(avbABData->magic, AVB_AB_MAGIC, AVB_AB_MAGIC_LEN) != 0) {
+	if (avbABData->magic != BOOT_CTRL_MAGIC) {
 		debug(L"AVB AB Magic is incorrect");
 		return EFI_COMPROMISED_DATA;
 	}
@@ -125,13 +125,13 @@ EFI_STATUS get_active_slot(UINT8 *slot)
 		// Read AVB AVB data failed
 		return ret;
 	}
-	for (i = 0, highest_priority = 0; i < ARRAY_SIZE(avbABData.slots); i++) {
-		if (avbABData.slots[i].successful_boot == 0
-				&& avbABData.slots[i].tries_remaining == 0)
+	for (i = 0, highest_priority = 0; i < ARRAY_SIZE(avbABData.slot_info); i++) {
+		if (avbABData.slot_info[i].successful_boot == 0
+				&& avbABData.slot_info[i].tries_remaining == 0)
 			continue;
 
-		if (highest_priority < avbABData.slots[i].priority) {
-			highest_priority = avbABData.slots[i].priority;
+		if (highest_priority < avbABData.slot_info[i].priority) {
+			highest_priority = avbABData.slot_info[i].priority;
 			*slot = i;
 		}
 	}
