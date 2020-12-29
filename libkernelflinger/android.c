@@ -58,6 +58,8 @@
 #include "firststage_mount.h"
 #endif
 
+#include "uefi_utils.h"
+
 #define OS_INITIATED L"os_initiated"
 
 /* On x86_32, stack protector save canary value(4 bytes) to GS:0x14.
@@ -524,8 +526,21 @@ struct boot_img_hdr *get_bootimage_header(VOID *bootimage_blob)
         return hdr;
 }
 
+static struct boot_params *get_boot_param_hdr (VOID *bootimage)
+{
+    int hdr_size;
+    struct boot_img_hdr *hdr;
 
-static EFI_STATUS setup_ramdisk(UINT8 *bootimage)
+    hdr = (struct boot_img_hdr *)bootimage;
+    if (hdr->header_version < BOOT_HEADER_V3)
+        hdr_size = hdr->page_size;
+    else
+        hdr_size = BOOT_IMG_HEADER_SIZE_V3;
+
+    return (struct boot_params *)(bootimage + hdr_size);
+}
+
+static EFI_STATUS setup_ramdisk(UINT8 *bootimage, UINT8 *vendorbootimage)
 {
         struct boot_img_hdr *aosp_header;
         struct boot_params *bp;
@@ -534,28 +549,62 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage)
         EFI_STATUS ret;
 
         aosp_header = (struct boot_img_hdr *)bootimage;
-        bp = (struct boot_params *)(bootimage + aosp_header->page_size);
+        bp = get_boot_param_hdr(bootimage);
 
-        roffset = aosp_header->page_size + pagealign(aosp_header,
-                        aosp_header->kernel_size);
-        rsize = aosp_header->ramdisk_size;
-        if (!rsize) {
+        if (aosp_header->header_version < BOOT_HEADER_V3) {
+            roffset = aosp_header->page_size + pagealign(aosp_header,
+                            aosp_header->kernel_size);
+            rsize = aosp_header->ramdisk_size;
+            if (!rsize) {
+                    debug(L"boot image has no ramdisk");
+                    return EFI_SUCCESS; // no ramdisk, so nothing to do
+            }
+
+            bp->hdr.ramdisk_len = rsize;
+            debug(L"ramdisk size %d", rsize);
+            ret = emalloc(rsize, 0x1000, &ramdisk_addr, FALSE);
+            if (EFI_ERROR(ret))
+                   return ret;
+
+            if ((UINTN)ramdisk_addr > bp->hdr.ramdisk_max) {
+                    error(L"Ramdisk address is too high!");
+                    efree(ramdisk_addr, rsize);
+                    return EFI_OUT_OF_RESOURCES;
+            }
+            ret = memcpy_s((VOID *)(UINTN)ramdisk_addr, rsize, bootimage + roffset, rsize);
+        } else { // boot image v3
+            struct vendor_boot_img_hdr_v3 *vendor_hdr = (struct vendor_boot_img_hdr_v3 *)vendorbootimage;
+            struct boot_img_hdr_v3 *boot_hdr = (struct boot_img_hdr_v3 *)bootimage;
+
+            uint32_t page_size = vendor_hdr->page_size;
+            roffset = BOOT_IMG_HEADER_SIZE_V3 + ALIGN(boot_hdr->kernel_size, page_size);
+            rsize = boot_hdr->ramdisk_size + vendor_hdr->vendor_ramdisk_size;
+            if (!rsize) {
                 debug(L"boot image has no ramdisk");
                 return EFI_SUCCESS; // no ramdisk, so nothing to do
-        }
+            }
 
-        bp->hdr.ramdisk_len = rsize;
-        debug(L"ramdisk size %d", rsize);
-        ret = emalloc(rsize, 0x1000, &ramdisk_addr, FALSE);
-        if (EFI_ERROR(ret))
+            bp->hdr.ramdisk_len = rsize;
+            ret = emalloc(rsize, 0x1000, &ramdisk_addr, FALSE);
+            if (EFI_ERROR(ret))
                 return ret;
 
-        if ((UINTN)ramdisk_addr > bp->hdr.ramdisk_max) {
+            if ((UINTN)ramdisk_addr > bp->hdr.ramdisk_max) {
                 error(L"Ramdisk address is too high!");
                 efree(ramdisk_addr, rsize);
                 return EFI_OUT_OF_RESOURCES;
+            }
+            ret = memcpy_s((VOID *)(UINTN)ramdisk_addr, rsize,
+                            vendorbootimage + BOOT_IMG_HEADER_SIZE_V3,
+                            vendor_hdr->vendor_ramdisk_size);
+            if (EFI_ERROR(ret))
+                    return ret;
+
+
+            ret = memcpy_s((VOID *)(UINTN)ramdisk_addr + vendor_hdr->vendor_ramdisk_size,
+                            rsize, bootimage + roffset, boot_hdr->ramdisk_size);
         }
-        ret = memcpy_s((VOID *)(UINTN)ramdisk_addr, rsize, bootimage + roffset, rsize);
+
         if (EFI_ERROR(ret))
                 return ret;
 
@@ -801,27 +850,31 @@ static CHAR16 *get_command_line(IN struct boot_img_hdr *aosp_header,
 #endif
 
         if (!cmdline16) {
-                CHAR8 full_cmdline[BOOT_ARGS_SIZE + BOOT_EXTRA_ARGS_SIZE];
-                int offset = BOOT_ARGS_SIZE;
+                if (aosp_header->header_version < BOOT_HEADER_V3) {
+                    CHAR8 full_cmdline[BOOT_ARGS_SIZE + BOOT_EXTRA_ARGS_SIZE];
+                    int offset = BOOT_ARGS_SIZE;
 
-                /* include the potential NUL terminal char */
-                ret = memcpy_s(full_cmdline, sizeof(full_cmdline), aosp_header->cmdline,
-                               BOOT_ARGS_SIZE);
-                if (EFI_ERROR(ret))
-                        return NULL;
+                    /* include the potential NUL terminal char */
+                    ret = memcpy_s(full_cmdline, sizeof(full_cmdline), aosp_header->cmdline,
+                                   BOOT_ARGS_SIZE);
+                    if (EFI_ERROR(ret))
+                            return NULL;
 
-                /* if there is extra cmdline arguments */
-                if (aosp_header->extra_cmdline[0]) {
-                        /* legacy boot.img format cmdline is NUL terminated */
-                        if (!aosp_header->cmdline[BOOT_ARGS_SIZE - 1])
-                                offset--;
-                        ret = memcpy_s(full_cmdline + offset, sizeof(full_cmdline),
-                                       aosp_header->extra_cmdline, BOOT_EXTRA_ARGS_SIZE);
-                        if (EFI_ERROR(ret))
-                                return NULL;
+                    /* if there is extra cmdline arguments */
+                    if (aosp_header->extra_cmdline[0]) {
+                            /* legacy boot.img format cmdline is NUL terminated */
+                            if (!aosp_header->cmdline[BOOT_ARGS_SIZE - 1])
+                                    offset--;
+                            ret = memcpy_s(full_cmdline + offset, sizeof(full_cmdline),
+                                           aosp_header->extra_cmdline, BOOT_EXTRA_ARGS_SIZE);
+                            if (EFI_ERROR(ret))
+                                    return NULL;
+                    }
+                    cmdline16 = stra_to_str(full_cmdline);
+                } else {
+                    struct boot_img_hdr_v3 *v3 = (struct boot_img_hdr_v3 *)aosp_header;
+                    cmdline16 = stra_to_str(v3->cmdline);
                 }
-
-                cmdline16 = stra_to_str(full_cmdline);
 
                 if (!cmdline16)
                         return NULL;
@@ -957,6 +1010,7 @@ static EFI_STATUS add_bootvars(VOID *bootimage, CHAR16 **cmdline16)
  * */
 static EFI_STATUS setup_command_line(
                 IN UINT8 *bootimage,
+                IN UINT8 *vendorbootimage,
                 IN enum boot_target boot_target,
                 IN void *parameter,
                 IN UINT8 boot_state,
@@ -994,12 +1048,15 @@ static EFI_STATUS setup_command_line(
         }
 
         aosp_header = (struct boot_img_hdr *)bootimage;
-        buf = (struct boot_params *)(bootimage + aosp_header->page_size);
-
         cmdline16 = get_command_line(aosp_header, boot_target);
         if (!cmdline16) {
                 ret = EFI_OUT_OF_RESOURCES;
                 goto out;
+        }
+
+        if (aosp_header->header_version >= BOOT_HEADER_V3) {
+            struct vendor_boot_img_hdr_v3 *v3 = (struct vendor_boot_img_hdr_v3 *)vendorbootimage;
+            ret = prepend_command_line(&cmdline16, L"%a", v3->cmdline);
         }
 
         /* Append serial number from DMI */
@@ -1192,6 +1249,7 @@ static EFI_STATUS setup_command_line(
                 cmdline[cmdlen] = 0;
         }
 
+        buf = get_boot_param_hdr(bootimage);
         buf->hdr.cmd_line_ptr = (UINT32)(UINTN)cmdline;
         ret = EFI_SUCCESS;
 out:
@@ -1243,9 +1301,7 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
         size_t setup_header_end;
 
         aosp_header = (struct boot_img_hdr *)bootimage;
-        buf = (struct boot_params *)(bootimage + aosp_header->page_size);
-
-        koffset = aosp_header->page_size;
+        buf = get_boot_param_hdr(bootimage);
         setup_sectors = buf->hdr.setup_secs;
         setup_sectors++; /* Add boot sector */
         setup_size = (UINT32)setup_sectors * 512;
@@ -1270,7 +1326,11 @@ static EFI_STATUS handover_kernel(CHAR8 *bootimage, EFI_HANDLE parent_image)
                         return ret;
         }
 
-        ret = memcpy_s((CHAR8 *)(UINTN)kernel_start, init_size, bootimage + koffset + setup_size,
+        if (aosp_header->header_version < BOOT_HEADER_V3)
+            koffset = setup_size + aosp_header->page_size;
+        else
+            koffset = setup_size + BOOT_IMG_HEADER_SIZE_V3;
+        ret = memcpy_s((CHAR8 *)(UINTN)kernel_start, init_size, bootimage + koffset,
                        ksize);
         if (EFI_ERROR(ret))
                 goto out;
@@ -1544,6 +1604,7 @@ out_free:
 EFI_STATUS android_image_start_buffer(
                 IN EFI_HANDLE parent_image,
                 IN VOID *bootimage,
+                IN VOID *vendorbootimage,
                 IN enum boot_target boot_target,
                 IN UINT8 boot_state,
                 IN __attribute__((unused)) EFI_GUID *swap_guid,
@@ -1563,8 +1624,11 @@ EFI_STATUS android_image_start_buffer(
                 error(L"buffer does not appear to contain an Android boot image");
                 return EFI_INVALID_PARAMETER;
         }
-
-        buf = (struct boot_params *)(bootimage + aosp_header->page_size);
+        if (aosp_header->header_version >= BOOT_HEADER_V3 && vendorbootimage == NULL) {
+                error(L"vendor boot image is necessary for boot image version >= 3");
+                return EFI_INVALID_PARAMETER;
+        }
+        buf = get_boot_param_hdr(bootimage);
 
         /* Check boot sector signature */
         if (buf->hdr.signature != 0xAA55) {
@@ -1594,7 +1658,8 @@ EFI_STATUS android_image_start_buffer(
         else
             parameter = (void *)abl_cmd_line;
 
-        ret = setup_command_line(bootimage, boot_target,
+        ret = setup_command_line(bootimage, vendorbootimage,
+                     boot_target,
                      parameter,
                      boot_state,
                      vb_data
@@ -1609,7 +1674,7 @@ EFI_STATUS android_image_start_buffer(
         use_ramdisk = !recovery_in_boot_partition() || boot_target == RECOVERY || boot_target == MEMORY;
 #endif
         if (use_ramdisk) {
-                ret = setup_ramdisk(bootimage);
+                ret = setup_ramdisk(bootimage, vendorbootimage);
                 if (EFI_ERROR(ret)) {
                         efi_perror(ret, L"setup_ramdisk");
                         goto out_cmdline;
