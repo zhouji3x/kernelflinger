@@ -1018,11 +1018,12 @@ static VOID enter_fastboot_mode(UINT8 boot_state)
 	VOID *bootimage_p;
 	AvbSlotVerifyData *slot_data;
 
-	if (is_run_on_kvm()) {
+	if (is_running_on_kvm()) {
 		/*
-		 * When run on kvm, OVMF will not connect network driver and other driver that
-		 * is not necessary for boot to achieve better performance, while network is
-		 * necessary for fastboot mode since USB device mode is not supported.
+		 * When running on kvm, OVMF will not connect network driver and other
+		 * driver that is not necessary for boot to achieve better performance,
+		 * while network is necessary for fastboot mode since USB device mode is
+		 * not supported.
 		 * Connect all drivers that have not been connected.
 		 *
 		 */

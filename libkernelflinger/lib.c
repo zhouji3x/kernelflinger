@@ -1609,7 +1609,7 @@ EFI_STATUS string_to_argv(char *str, INTN *argc, CHAR8 *argv[], UINTN max_argc,
         return EFI_SUCCESS;
 }
 
-int is_run_on_kvm(void)
+int is_running_on_kvm(void)
 {
     UINT32 reg[4];
 
