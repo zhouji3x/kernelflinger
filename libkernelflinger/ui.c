@@ -114,7 +114,7 @@ EFI_STATUS ui_init(UINTN *width_p, UINTN *height_p)
 		return ret;
 	}
 
-	if (is_run_on_kvm()) {
+	if (is_running_on_kvm()) {
 		/*
 		 * When run on kvm, change mode may lead to incorrect display.
 		 * use current mode instead of finding the best mode.
