@@ -415,6 +415,7 @@ EFI_STATUS tcp_start(UINT32 port, start_callback_t start_cb,
 	if (!start_cb || !rx_cb || !tx_cb || !station_address)
 		return EFI_INVALID_PARAMETER;
 
+	rx.receiving = FALSE;
 	start_callback = start_cb;
 	rx_callback = rx_cb;
 	tx_callback = tx_cb;
