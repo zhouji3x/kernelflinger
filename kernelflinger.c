@@ -1107,6 +1107,17 @@ static void bootloader_recover_mode(UINT8 boot_state)
 {
 	enum boot_target target;
 
+	if (is_running_on_kvm()) {
+		/*
+		 * When running on kvm, OVMF will not connect network driver and other
+		 * driver that is not necessary for boot to achieve better performance,
+		 * while network is necessary for crash mode since USB device mode is
+		 * not supported.
+		 * Connect all drivers that have not been connected.
+		 *
+		 */
+		connect_all_drivers();
+	}
 #ifdef USE_UI
 	target = ux_prompt_user_for_boot_target(NOT_BOOTABLE_CODE);
 	if (target == FASTBOOT)
