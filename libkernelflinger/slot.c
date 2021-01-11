@@ -519,7 +519,7 @@ EFI_STATUS slot_reset(void)
 
 	memset(&boot_ctrl, 0, sizeof(boot_ctrl));
 	boot_ctrl.magic = BOOT_CTRL_MAGIC;
-	boot_ctrl.version = BOOT_CTRL_VERSION;
+	boot_ctrl.version_major = BOOT_CTRL_VERSION;
 	boot_ctrl.nb_slot = nb_slot;
 	is_used = TRUE;
 
