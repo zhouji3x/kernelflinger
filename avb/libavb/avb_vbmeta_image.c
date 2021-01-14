@@ -56,7 +56,7 @@ AvbVBMetaVerifyResult avb_vbmeta_image_verify(
 
   /* Ensure magic is correct. */
   if (avb_safe_memcmp(data, AVB_MAGIC, AVB_MAGIC_LEN) != 0) {
-    avb_error("Magic is incorrect.\n");
+    avb_debug("Magic is incorrect.\n");
     goto out;
   }
 

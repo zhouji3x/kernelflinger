@@ -674,10 +674,10 @@ static EFI_STATUS tpm2_check_cap_permanent(void)
 
 	/* Verify the LOCKOUT_AUTH */
 	if (!per.lockoutAuthSet)
-		error(L"TPM LOCKOUT_AUTH is not set, set it can get higher security");
+		warning(L"TPM LOCKOUT_AUTH is not set!");
 
 	if (!per.ownerAuthSet)
-		info(L"TPM owner is not taken! Take it after verification to get higher security!");
+		warning(L"TPM owner is not taken!");
 
 	return ret;
 }

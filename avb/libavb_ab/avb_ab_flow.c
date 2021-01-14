@@ -27,7 +27,8 @@
 bool avb_ab_data_verify_and_byteswap(const AvbABData* src, AvbABData* dest) {
   /* Ensure magic is correct. */
   if (src->magic != BOOT_CTRL_MAGIC) {
-    avb_error("Magic is incorrect.\n");
+    if(src->magic != 0)
+      avb_error("Magic is incorrect.\n");
     return false;
   }
 
@@ -101,9 +102,10 @@ AvbIOResult avb_ab_data_read(AvbABOps* ab_ops, AvbABData* data) {
   }
 
   if (!avb_ab_data_verify_and_byteswap(&serialized, data)) {
-    avb_error(
-        "Error validating A/B metadata from disk. "
-        "Resetting and writing new A/B metadata to disk.\n");
+    if(serialized.magic != 0)
+      avb_error(
+          "Error validating A/B metadata from disky. "
+          "Resetting and writing new A/B metadata to disk.\n");
     avb_ab_data_init(data);
     return avb_ab_data_write(ab_ops, data);
   }
@@ -286,7 +288,8 @@ AvbABFlowResult avb_ab_flow(AvbABOps* ab_ops,
       }
 
       if (set_slot_unbootable) {
-        avb_errorv("Error verifying slot ",
+        if(verify_result != AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA)
+            avb_errorv("Error verifying slot ",
                    slot_suffixes[n],
                    " with result ",
                    avb_slot_verify_result_to_string(verify_result),

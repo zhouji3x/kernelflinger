@@ -775,7 +775,7 @@ static CHAR16 *get_boot_reason(void)
         /* in case of an OS initiated reboot => get reason from efi var */
         bootreason = get_reboot_reason();
         if (!bootreason) {
-                error(L"Error while trying to read the reboot reason");
+                debug(L"Error while trying to read the reboot reason");
                 bootreason = L"unknown";
                 goto done;
         }

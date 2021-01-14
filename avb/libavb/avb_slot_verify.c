@@ -737,7 +737,8 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     case AVB_VBMETA_VERIFY_RESULT_INVALID_VBMETA_HEADER:
       /* No way to continue this case. */
       ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
-      avb_errorv(full_partition_name,
+      if (*(uint32_t *)vbmeta_buf != 0)
+          avb_errorv(full_partition_name,
                  ": Error verifying vbmeta image: invalid vbmeta header\n",
                  NULL);
       goto out;
