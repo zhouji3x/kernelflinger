@@ -65,6 +65,7 @@
 #ifdef USE_TPM
 #include "tpm2_security.h"
 #endif
+#include "uefi_lib.h"
 
 /* Ensure this is embedded in the EFI binary somewhere */
 static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
@@ -115,7 +116,7 @@ static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
 #define WATCHDOG_DELAY       (10 * 60)
 
 static EFI_HANDLE g_disk_device;
-static EFI_LOADED_IMAGE *g_loaded_image;
+
 static VOID die(VOID) __attribute__ ((noreturn));
 
 #if DEBUG_MESSAGES
@@ -425,6 +426,7 @@ error:
 
 static enum boot_target check_command_line(VOID)
 {
+	EFI_LOADED_IMAGE *g_loaded_image;
 	UINTN argc, pos;
 	CHAR16 **argv;
 	CHAR16 *options;
@@ -432,6 +434,7 @@ static enum boot_target check_command_line(VOID)
 
 	bt = NORMAL_BOOT;
 
+	get_loaded_image_protocol(&g_loaded_image);
 	if (EFI_ERROR(get_argv(g_loaded_image, &argc, &argv, &options)))
 		return NORMAL_BOOT;
 
@@ -1170,6 +1173,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	enum boot_target boot_target = NORMAL_BOOT;
 	UINT8 boot_state = BOOT_STATE_GREEN;
 	VBDATA *vb_data = NULL;
+	EFI_LOADED_IMAGE *g_loaded_image = NULL;
 
 	set_boottime_stamp(TM_EFI_MAIN);
 	/* gnu-efi initialization */
@@ -1183,9 +1187,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 
 	/* populate globals */
 	g_parent_image = image;
-	ret = uefi_call_wrapper(BS->OpenProtocol, 6, image,
-			&LoadedImageProtocol, (VOID **)&g_loaded_image,
-			image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+	ret = get_loaded_image_protocol(&g_loaded_image);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"OpenProtocol: LoadedImageProtocol");
 		return ret;

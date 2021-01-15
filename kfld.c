@@ -62,8 +62,6 @@
 
 
 static EFI_HANDLE g_disk_device;
-static EFI_LOADED_IMAGE *g_loaded_image;
-
 
 EFI_STATUS avb_ab_read_misc(AvbABData *avbABData)
 {
@@ -139,7 +137,7 @@ EFI_STATUS get_active_slot(UINT8 *slot)
 	return ret;
 }
 
-EFI_STATUS load_kf(UINT8 slot)
+EFI_STATUS load_kf(EFI_LOADED_IMAGE *g_loaded_image, UINT8 slot)
 {
 	EFI_STATUS ret, unload_ret;
 	CHAR16 *label;
@@ -224,6 +222,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 {
 	EFI_STATUS ret;
 	UINT8 active_slot;
+	EFI_LOADED_IMAGE *g_loaded_image = NULL;
 
 	InitializeLib(image, _table);
 
@@ -266,7 +265,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *_table)
 	get_active_slot(&active_slot);
 
 	debug(L"Try to load slot: %d", active_slot);
-	ret = load_kf(active_slot);
+	ret = load_kf(g_loaded_image, active_slot);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Load slot %d failed", active_slot);
 		set_efi_loaded_slot_failed(active_slot, ret);

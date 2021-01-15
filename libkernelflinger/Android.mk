@@ -127,7 +127,8 @@ LOCAL_SRC_FILES := \
 	general_block.c \
 	vbmeta_ias.c \
 	android_vb2.c \
-	security_vb2.c
+	security_vb2.c \
+	uefi_lib.c
 
 ifeq ($(KERNELFLINGER_SUPPORT_USB_STORAGE),true)
 	LOCAL_SRC_FILES += usb_storage.c \
