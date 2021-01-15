@@ -35,5 +35,6 @@
 #define _UEFI_LIB_H_
 
 EFI_STATUS get_loaded_image_protocol(EFI_LOADED_IMAGE **loaded_image);
+EFI_HANDLE get_default_storage_handle(VOID);
 
 #endif

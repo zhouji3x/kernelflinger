@@ -46,3 +46,15 @@ EFI_STATUS get_loaded_image_protocol(EFI_LOADED_IMAGE **loaded_image)
 	return ret;
 }
 
+EFI_HANDLE get_default_storage_handle(VOID)
+{
+	EFI_STATUS ret;
+	EFI_LOADED_IMAGE *loaded = NULL;
+
+	ret = get_loaded_image_protocol(&loaded);
+	if (EFI_ERROR(ret))
+		return NULL;
+
+	return loaded->DeviceHandle;
+}
+

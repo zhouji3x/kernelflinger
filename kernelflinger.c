@@ -115,8 +115,6 @@ static const CHAR16 __attribute__((used)) magic[] = L"### kernelflinger ###";
  */
 #define WATCHDOG_DELAY       (10 * 60)
 
-static EFI_HANDLE g_disk_device;
-
 static VOID die(VOID) __attribute__ ((noreturn));
 
 #if DEBUG_MESSAGES
@@ -143,6 +141,9 @@ static VOID print_rsci_values(VOID)
 
 static enum boot_target check_fastboot_sentinel(VOID)
 {
+	EFI_HANDLE g_disk_device;
+
+	g_disk_device = get_default_storage_handle();
 	debug(L"checking ESP for %s", FASTBOOT_SENTINEL);
 	if (file_exists(g_disk_device, FASTBOOT_SENTINEL))
 		return FASTBOOT;
@@ -247,7 +248,9 @@ static enum boot_target check_bcb(CHAR16 **target_path, BOOLEAN *oneshot)
 
 	if (target[0] == L'\\') {
 		UINTN len;
+		EFI_HANDLE g_disk_device;
 
+		g_disk_device = get_default_storage_handle();
 		if (!file_exists(g_disk_device, target)) {
 			error(L"Specified BCB file '%s' doesn't exist",
 					target);
@@ -754,6 +757,7 @@ static EFI_STATUS avb_load_verify_boot_image(
 		AvbSlotVerifyData **slot_data)
 {
 	EFI_STATUS ret;
+	EFI_HANDLE g_disk_device;
 
 	switch (boot_target) {
 	case NORMAL_BOOT:
@@ -781,6 +785,7 @@ static EFI_STATUS avb_load_verify_boot_image(
 		break;
 	case ESP_BOOTIMAGE:
 		/* "fastboot boot" case */
+		g_disk_device = get_default_storage_handle();
 		ret = android_image_load_file(g_disk_device, target_path, oneshot,
 			bootimage);
 		break;
@@ -1174,6 +1179,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	UINT8 boot_state = BOOT_STATE_GREEN;
 	VBDATA *vb_data = NULL;
 	EFI_LOADED_IMAGE *g_loaded_image = NULL;
+	EFI_HANDLE g_disk_device;
 
 	set_boottime_stamp(TM_EFI_MAIN);
 	/* gnu-efi initialization */
