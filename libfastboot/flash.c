@@ -335,15 +335,15 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 	}
 	if (!ramdisk) {
 		ramdisk = (VOID *)bootimage + page_size +
-			pagealign(bootimage, bootimage->kernel_size);
+			ALIGN(bootimage->kernel_size, page_size);
 		ramdisk_size = bootimage->ramdisk_size;
 	}
 
 	new_size = bootimage_size(bootimage)
-		- pagealign(bootimage, bootimage->kernel_size)
-		+ pagealign(bootimage, kernel_size)
-		- pagealign(bootimage, bootimage->ramdisk_size)
-		+ pagealign(bootimage, ramdisk_size);
+		- ALIGN(bootimage->kernel_size, page_size)
+		+ ALIGN(kernel_size, page_size)
+		- ALIGN(bootimage->ramdisk_size, page_size)
+		+ ALIGN(ramdisk_size, page_size);
 	if (new_size > partlen) {
 		error(L"Kernel image is too large to fit in the boot partition");
 		ret = EFI_INVALID_PARAMETER;
@@ -369,20 +369,20 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 	if (EFI_ERROR(ret))
 		goto out1;
 
-	cur += pagealign(bootimage, bootimage->kernel_size);
-	new_cur += pagealign(new_bootimage, kernel_size);
+	cur += ALIGN(bootimage->kernel_size, page_size);
+	new_cur += ALIGN(kernel_size, page_size);
 
 	new_bootimage->ramdisk_size = ramdisk_size;
-	ret = memcpy_s(new_cur, new_size - page_size - pagealign(new_bootimage, kernel_size),
+	ret = memcpy_s(new_cur, new_size - page_size - ALIGN(kernel_size, page_size),
 				   ramdisk, ramdisk_size);
 	if (EFI_ERROR(ret))
 		goto out1;
 
-	cur += pagealign(bootimage, bootimage->ramdisk_size);
-	new_cur += pagealign(new_bootimage, ramdisk_size);
+	cur += ALIGN(bootimage->ramdisk_size, page_size);
+	new_cur += ALIGN(ramdisk_size, page_size);
 
 	ret = memcpy_s(new_cur,
-				   new_size - page_size - pagealign(new_bootimage, kernel_size) - pagealign(new_bootimage, ramdisk_size),
+				   new_size - page_size - ALIGN(kernel_size, page_size) - ALIGN(ramdisk_size, page_size),
 				   cur, bootimage->second_size);
 	if (EFI_ERROR(ret))
 		goto out1;

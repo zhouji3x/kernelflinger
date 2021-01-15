@@ -365,9 +365,6 @@ struct boot_img_hdr *get_bootimage_header(VOID *bootimage_blob);
  * block */
 UINTN bootimage_size(struct boot_img_hdr *aosp_header);
 
-/* Return the blob_size aligned on hdr->page_size.  */
-UINT32 pagealign(struct boot_img_hdr *hdr, UINT32 blob_size);
-
 #ifdef HAL_AUTODETECT
 /* Get a particular blob type out of a boot image's blobstore, stored in
  * the 'second stage' area.

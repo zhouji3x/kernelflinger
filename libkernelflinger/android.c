@@ -480,28 +480,21 @@ boot:
 }
 
 
-
-UINT32 pagealign(struct boot_img_hdr *hdr, UINT32 blob_size)
-{
-        UINT32 page_mask = hdr->page_size - 1;
-        return (blob_size + page_mask) & (~page_mask);
-}
-
-
 UINTN bootimage_size(struct boot_img_hdr *aosp_header)
 {
         UINTN size;
+        unsigned page_size = aosp_header->page_size;
 
-        size = pagealign(aosp_header, aosp_header->kernel_size) +
-               pagealign(aosp_header, aosp_header->ramdisk_size) +
-               pagealign(aosp_header, aosp_header->second_size) +
-               aosp_header->page_size;
+        size = ALIGN(aosp_header->kernel_size, page_size) +
+               ALIGN(aosp_header->ramdisk_size, page_size) +
+               ALIGN(aosp_header->second_size, page_size) +
+               page_size;
 
         if (aosp_header->header_version >= 1)
-                size += pagealign(aosp_header, aosp_header->recovery_acpio_size);
+                size += ALIGN(aosp_header->recovery_acpio_size, page_size);
 
         if (aosp_header->header_version == 2)
-                size += pagealign(aosp_header, aosp_header->acpi_size);
+                size += ALIGN(aosp_header->acpi_size, page_size);
 
         return size;
 }
@@ -546,8 +539,8 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage, UINT8 *vendorbootimage)
         bp = get_boot_param_hdr(bootimage);
 
         if (aosp_header->header_version < BOOT_HEADER_V3) {
-            roffset = aosp_header->page_size + pagealign(aosp_header,
-                            aosp_header->kernel_size);
+            unsigned page_size = aosp_header->page_size;
+            roffset = page_size + ALIGN(aosp_header->kernel_size, page_size);
             rsize = aosp_header->ramdisk_size;
             if (!rsize) {
                     debug(L"boot image has no ramdisk");
@@ -919,6 +912,7 @@ EFI_STATUS get_bootimage_2nd(VOID *bootimage, VOID **second, UINT32 *size)
 {
         struct boot_img_hdr *bh;
         UINT32 offset;
+        unsigned page_size;
 
         bh = get_bootimage_header(bootimage);
         if (!bh)
@@ -928,8 +922,9 @@ EFI_STATUS get_bootimage_2nd(VOID *bootimage, VOID **second, UINT32 *size)
         if (bh->second_size == 0)
                 return EFI_NOT_FOUND;
 
-        offset = bh->page_size + pagealign(bh, bh->kernel_size) +
-                 pagealign(bh, bh->ramdisk_size);
+        page_size = bh->page_size;
+        offset = page_size + ALIGN(bh->kernel_size, page_size) +
+                 ALIGN(bh->ramdisk_size, page_size);
         *second = (UINT8 *)bootimage + offset;
         *size = bh->second_size;
         return EFI_SUCCESS;

@@ -19,6 +19,7 @@
 #include "android.h"
 #include "slot.h"
 #include "acpi.h"
+#include "uefi_utils.h"
 
 //Global AvbOps data structure
 static AvbOps *ops = NULL;
@@ -280,12 +281,13 @@ EFI_STATUS android_install_acpi_table_avb(AvbSlotVerifyData *slot_data)
         if (image != NULL) {
                 hdr = (struct boot_img_hdr *)image;
                 if ((hdr->header_version > 1) && (hdr->acpi_size > 0)) {
+                        unsigned page_size = hdr->page_size;
                         VOID *acpi_addr = image +
-                                pagealign(hdr, hdr->kernel_size) +
-                                pagealign(hdr, hdr->ramdisk_size) +
-                                pagealign(hdr, hdr->second_size) +
-                                pagealign(hdr, hdr->recovery_acpio_size) +
-                                hdr->page_size;
+                                ALIGN(hdr->kernel_size, page_size) +
+                                ALIGN(hdr->ramdisk_size, page_size) +
+                                ALIGN(hdr->second_size, page_size) +
+                                ALIGN(hdr->recovery_acpio_size, page_size) +
+                                page_size;
                         install_acpi_table_from_boot_acpi(acpi_addr, hdr->acpi_size);
                 }
         }
