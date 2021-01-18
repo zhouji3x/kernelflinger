@@ -35,12 +35,7 @@
 #include <efiapi.h>
 #include <efilib.h>
 
-#include "openssl_support.h"
-
-#include <openssl/sha.h>
-
-#include <fastboot.h>
-
+#include "fastboot.h"
 #include "vars.h"
 #include "lib.h"
 #include "security.h"
@@ -64,8 +59,6 @@
 #include "trusty_interface.h"
 #include "trusty_common.h"
 #endif
-#include "gpt.h"
-#include "protocol.h"
 #include "uefi_utils.h"
 #include "security_interface.h"
 #include "security_efi.h"

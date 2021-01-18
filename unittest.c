@@ -39,7 +39,6 @@
 #include "ui.h"
 #include "lib.h"
 #include "unittest.h"
-#include "blobstore.h"
 #include "watchdog.h"
 
 /*

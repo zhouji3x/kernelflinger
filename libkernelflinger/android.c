@@ -41,18 +41,12 @@
 #include "security.h"
 #include "vars.h"
 #include "power.h"
-#include "targets.h"
 #include "gpt.h"
-#include "storage.h"
-#include "text_parser.h"
 #include "watchdog.h"
 #ifdef HAL_AUTODETECT
 #include "blobstore.h"
 #endif
 #include "slot.h"
-#include "pae.h"
-#include "timer.h"
-#include "android_vb2.h"
 #include "acpi.h"
 #ifdef USE_FIRSTSTAGE_MOUNT
 #include "firststage_mount.h"

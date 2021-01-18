@@ -15,25 +15,9 @@
  */
 #include <efi.h>
 #include <efilib.h>
-#include <ui.h>
 
 #include "android.h"
-#include "efilinux.h"
-#include "lib.h"
-#include "security.h"
-#include "vars.h"
-#include "power.h"
-#include "targets.h"
-#include "gpt.h"
-#include "storage.h"
-#include "text_parser.h"
-#include "watchdog.h"
-#ifdef HAL_AUTODETECT
-#include "blobstore.h"
-#endif
 #include "slot.h"
-#include "pae.h"
-#include "timer.h"
 #include "acpi.h"
 
 //Global AvbOps data structure
