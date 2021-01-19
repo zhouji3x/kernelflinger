@@ -1408,62 +1408,6 @@ static EFI_STATUS android_install_acpi_table(VOID)
         return ret;
 }
 
-EFI_STATUS android_image_load_partition(
-                IN const CHAR16 *label,
-                OUT VOID **bootimage_p)
-{
-        UINT32 MediaId;
-        UINT32 img_size;
-        VOID *bootimage;
-        EFI_STATUS ret;
-        struct boot_img_hdr aosp_header;
-        struct gpt_partition_interface gpart;
-        UINT64 partition_start;
-
-        *bootimage_p = NULL;
-        ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
-        if (EFI_ERROR(ret)) {
-                error(L"Partition %s not found", label);
-                return ret;
-        }
-        MediaId = gpart.bio->Media->MediaId;
-        partition_start = gpart.part.starting_lba * gpart.bio->Media->BlockSize;
-
-        debug(L"Reading boot image header");
-        ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, MediaId,
-                                partition_start,
-                                sizeof(aosp_header), &aosp_header);
-        if (EFI_ERROR(ret)) {
-                efi_perror(ret, L"ReadDisk (header)");
-                return ret;
-        }
-        if (memcmp(aosp_header.magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
-                error(L"This partition does not appear to contain an Android boot image");
-                return EFI_INVALID_PARAMETER;
-        }
-
-        img_size = bootimage_size(&aosp_header) + BOOT_SIGNATURE_MAX_SIZE;
-        bootimage = AllocatePool(img_size);
-        if (!bootimage)
-                return EFI_OUT_OF_RESOURCES;
-
-        debug(L"Reading full boot image (%d bytes)", img_size);
-        ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, MediaId, partition_start,
-                                img_size, bootimage);
-        if (EFI_ERROR(ret)) {
-                efi_perror(ret, L"ReadDisk");
-                FreePool(bootimage);
-                return ret;
-        }
-
-        *bootimage_p = bootimage;
-
-        ret = android_install_acpi_table();
-
-        return ret;
-}
-
-
 EFI_STATUS android_image_load_file(
                 IN EFI_HANDLE device,
                 IN CHAR16 *loader,
