@@ -787,7 +787,7 @@ EFI_STATUS get_acpi_hash(const CHAR16 *label)
 	EFI_STATUS ret;
 	struct gpt_partition_interface gpart;
 	CHAR8 hash[EVP_MAX_MD_SIZE];
-	struct ACPI_INFO *acpi_info;
+	struct ACPI_INFO acpi_info;
 
 	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
@@ -801,13 +801,10 @@ EFI_STATUS get_acpi_hash(const CHAR16 *label)
 		return ret;
 	}
 
-	ret = hash_partition(&gpart, (*acpi_info).img_size, hash);
-	if (EFI_ERROR(ret)) {
-		FreePool(acpi_info);
+	ret = hash_partition(&gpart, acpi_info.img_size, hash);
+	if (EFI_ERROR(ret))
 		return ret;
-	}
 
-	FreePool(acpi_info);
 	return report_hash(L"/", label, hash);
 }
 #endif

@@ -85,15 +85,15 @@ static UINT8 acpi_csum(VOID *base, UINT32 n)
 	return sum;
 }
 
-EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO **acpi_info)
+EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO *acpi_info)
 {
 	UINT32 MediaId;
 	EFI_STATUS ret;
 	struct dt_table_header aosp_header;
-	UINT32 magic, total_size;
+	UINT32 magic;
+	UINT32 img_size;
 	UINT64 partition_size;
 	UINT64 partition_start;
-	struct ACPI_INFO *current_acpi;
 	struct gpt_partition_interface gpart;
 
 	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
@@ -114,46 +114,38 @@ EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO **acpi_in
 	}
 
 	magic = bswap_32(aosp_header.magic);
-	total_size = bswap_32(aosp_header.total_size);
 	if (magic != ACPI_TABLE_MAGIC) {
 		error(L"This partition has no ACPI image, the magic is: 0x%x", magic);
 		return EFI_INVALID_PARAMETER;
 	}
 
-	current_acpi = AllocatePool(sizeof(struct ACPI_INFO));
-	if (!current_acpi) {
-		error(L"Alloc memory for %s ACPI_INFO failed", label);
-		return EFI_OUT_OF_RESOURCES;
-	}
-
 	/*
 	  If AVB case, get the image length from mixins' definition.
 	 */
-	(*current_acpi).img_size = 0;
+	img_size = 0;
 #ifdef USE_ACPIO
 	if (!StrnCmp(label, L"acpio_", 6))
-		(*current_acpi).img_size = BOARD_ACPIOIMAGE_PARTITION_SIZE;
+		img_size = BOARD_ACPIOIMAGE_PARTITION_SIZE;
 #endif
 #ifdef USE_ACPI
 	if (!StrnCmp(label, L"acpi_", 5))
-		(*current_acpi).img_size = BOARD_ACPIIMAGE_PARTITION_SIZE;
+		img_size = BOARD_ACPIIMAGE_PARTITION_SIZE;
 #endif
-	if ((*current_acpi).img_size == 0) {
+
+	if (img_size == 0) {
 		error(L"%s is not acpio or acpi", label);
-		FreePool(current_acpi);
 		return EFI_INVALID_PARAMETER;
 	}
 
-	if ((*current_acpi).img_size > partition_size) {
+	if (img_size > partition_size) {
 		error(L"%s image is larger than partition size", label);
-		FreePool(current_acpi);
 		return EFI_INVALID_PARAMETER;
 	}
 
-	(*current_acpi).MediaId = MediaId;
-	(*current_acpi).partition_start = partition_start;
-	(*current_acpi).partition_size = partition_size;
-	*acpi_info = current_acpi;
+	acpi_info->img_size = img_size;
+	acpi_info->MediaId = MediaId;
+	acpi_info->partition_start = partition_start;
+	acpi_info->partition_size = partition_size;
 	return EFI_SUCCESS;
 }
 
@@ -162,7 +154,7 @@ static EFI_STATUS acpi_image_load_partition(const CHAR16 *label, VOID **image)
 	EFI_STATUS ret;
 	struct gpt_partition_interface gpart;
 	VOID *acpiimage;
-	struct ACPI_INFO *acpi_info;
+	struct ACPI_INFO acpi_info;
 
 	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
 	if (EFI_ERROR(ret)) {
@@ -175,23 +167,20 @@ static EFI_STATUS acpi_image_load_partition(const CHAR16 *label, VOID **image)
 		return ret;
 	}
 
-	acpiimage = AllocatePool((*acpi_info).img_size);
+	acpiimage = AllocatePool(acpi_info.img_size);
 	if (!acpiimage) {
 		error(L"Alloc memory for %s image failed", label);
-		FreePool(acpi_info);
 		return EFI_OUT_OF_RESOURCES;
 	}
-	debug(L"Reading %s image: %d bytes", label, (*acpi_info).img_size);
-	ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, (*acpi_info).MediaId,
-				(*acpi_info).partition_start, (*acpi_info).img_size, acpiimage);
+	debug(L"Reading %s image: %d bytes", label, acpi_info.img_size);
+	ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, acpi_info.MediaId,
+				acpi_info.partition_start, acpi_info.img_size, acpiimage);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"ReadDisk Error for %s image read", label);
-		FreePool(acpi_info);
 		FreePool(acpiimage);
 		return ret;
 	}
 	*image = acpiimage;
-	FreePool(acpi_info);
 	return EFI_SUCCESS;
 }
 
