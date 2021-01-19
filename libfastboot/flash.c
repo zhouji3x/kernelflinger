@@ -53,7 +53,6 @@
 #include "ioc_uart_protocol.h"
 #endif
 #ifdef FASTBOOT_KEYBOX_PROVISION
-#include "aes_gcm.h"
 #include "keybox_provision.h"
 #endif
 static struct gpt_partition_interface gparti;

@@ -125,7 +125,6 @@ LOCAL_SRC_FILES := \
 	nvme.c \
 	virtual_media.c \
 	general_block.c \
-	aes_gcm.c \
 	vbmeta_ias.c \
 	android_vb2.c \
 	security_vb2.c
