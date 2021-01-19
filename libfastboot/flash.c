@@ -48,7 +48,6 @@
 #include "oemvars.h"
 #include "vars.h"
 #include "bootloader.h"
-#include "authenticated_action.h"
 #if defined(IOC_USE_SLCAN) || defined(IOC_USE_CBC)
 #include "ioc_uart_protocol.h"
 #endif

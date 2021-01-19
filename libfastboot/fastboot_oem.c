@@ -44,7 +44,6 @@
 #include "fastboot.h"
 #include "fastboot_ui.h"
 #include "gpt.h"
-#include "authenticated_action.h"
 
 #include "fastboot_oem.h"
 #include "fastboot_flashing.h"

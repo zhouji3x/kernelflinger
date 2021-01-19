@@ -51,7 +51,6 @@
 #include "fastboot_ui.h"
 #include "smbios.h"
 #include "info.h"
-#include "authenticated_action.h"
 #include "fastboot_transport.h"
 #if defined(IOC_USE_SLCAN) || defined(IOC_USE_CBC)
 #include "ioc_can.h"
