@@ -282,19 +282,14 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 		error(L"Unable to get information on the boot partition");
 		return ret;
 	}
-	partlen = (gparti.part.ending_lba + 1 - gparti.part.starting_lba)
-		* gparti.bio->Media->BlockSize;
-
+	partlen = partition_size(&gparti);
 	bootimage = AllocatePool(sizeof(*bootimage));
 	if (!bootimage) {
 		error(L"Unable to allocate bootimage buffer");
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-	ret = uefi_call_wrapper(gparti.dio->ReadDisk, 5, gparti.dio,
-				gparti.bio->Media->MediaId,
-				gparti.part.starting_lba * gparti.bio->Media->BlockSize,
-				sizeof(*bootimage), bootimage);
+	ret = read_partition(&gparti, 0, sizeof(*bootimage), bootimage);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to load the current bootimage");
 		goto out;
@@ -319,10 +314,7 @@ static EFI_STATUS flash_new_bootimage(VOID *kernel, UINTN kernel_size,
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-	ret = uefi_call_wrapper(gparti.dio->ReadDisk, 5, gparti.dio,
-				gparti.bio->Media->MediaId,
-				gparti.part.starting_lba * gparti.bio->Media->BlockSize,
-				bootimage_size(bootimage), bootimage);
+	ret = read_partition(&gparti, 0, bootimage_size(bootimage), bootimage);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Failed to load the current bootimage");
 		goto out;

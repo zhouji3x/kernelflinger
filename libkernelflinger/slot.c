@@ -117,20 +117,15 @@ static UINTN get_part_nb_slot(const CHAR16 *label)
 static inline EFI_STATUS sync_boot_ctrl(BOOLEAN out)
 {
 	EFI_STATUS ret;
-	struct gpt_partition_interface gparti;
 	UINT64 offset;
 
-	ret = gpt_get_partition_by_label(SLOT_STORAGE_PART, &gparti, LOGICAL_UNIT_USER);
-	if (EFI_ERROR(ret))
-		return ret;
+	offset = offsetof(struct bootloader_message_ab, slot_suffix);
+	if (out)
+		ret = write_partition_by_label(SLOT_STORAGE_PART, offset, sizeof(boot_ctrl), &boot_ctrl);
+	else
+		ret = read_partition_by_label(SLOT_STORAGE_PART, offset, sizeof(boot_ctrl), &boot_ctrl);
 
-	offset = gparti.part.starting_lba * gparti.bio->Media->BlockSize +
-		offsetof(struct bootloader_message_ab, slot_suffix);
-
-	return uefi_call_wrapper((out ? gparti.dio->ReadDisk : gparti.dio->WriteDisk),
-				 5, gparti.dio,
-				 gparti.bio->Media->MediaId,
-				 offset, sizeof(boot_ctrl), &boot_ctrl);
+	return ret;
 }
 
 static EFI_STATUS read_boot_ctrl(void)

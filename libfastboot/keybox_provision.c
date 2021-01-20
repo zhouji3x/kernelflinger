@@ -33,7 +33,6 @@ typedef struct keybox_header {
 EFI_STATUS flash_keybox(VOID *data, UINTN size)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
-	uint64_t partoffset;
 	struct gpt_partition_interface gpart;
 	keybox_header_t kb_header =
 		{
@@ -57,29 +56,14 @@ EFI_STATUS flash_keybox(VOID *data, UINTN size)
 		goto exit;
 	}
 
-	partoffset = gpart.part.starting_lba * gpart.bio->Media->BlockSize;
-
-	ret = uefi_call_wrapper(
-				gpart.dio->WriteDisk,
-				5,
-				gpart.dio,
-				gpart.bio->Media->MediaId,
-				partoffset + KB_HEAD_OFFSET,
-				sizeof(keybox_header_t),
-				(void *)&kb_header);
+	ret = write_partition(&gpart, KB_HEAD_OFFSET, sizeof(kb_header), &kb_header);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Could not write keybox header to disk.");
 		goto exit;
 	}
 
-	ret = uefi_call_wrapper(
-				gpart.dio->WriteDisk,
-				5,
-				gpart.dio,
-				gpart.bio->Media->MediaId,
-				sizeof(keybox_header_t) + partoffset + KB_HEAD_OFFSET,
-				size,
-				data);
+	ret = write_partition(&gpart, KB_HEAD_OFFSET + sizeof(keybox_header_t),
+				size, data);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Could not write keybox to disk.");
 		goto exit;

@@ -48,7 +48,7 @@ static AvbIOResult read_from_partition(__attribute__((unused)) AvbOps* ops,
                                        size_t* out_num_read) {
   EFI_STATUS efi_ret;
   struct gpt_partition_interface gpart;
-  int64_t partition_size;
+  int64_t part_size;
   const CHAR16 *label;
 
   avb_assert(partition_name != NULL);
@@ -68,35 +68,24 @@ static AvbIOResult read_from_partition(__attribute__((unused)) AvbOps* ops,
     return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
   }
 
-  partition_size =
-      (gpart.part.ending_lba - gpart.part.starting_lba + 1) *
-      gpart.bio->Media->BlockSize;
-
+  part_size = partition_size(&gpart);
   if (offset_from_partition < 0) {
-    if ((-offset_from_partition) > partition_size) {
+    if ((-offset_from_partition) > part_size) {
       avb_error("Offset outside range.\n");
       return AVB_IO_RESULT_ERROR_RANGE_OUTSIDE_PARTITION;
     }
-    offset_from_partition = partition_size - (-offset_from_partition);
+    offset_from_partition = part_size - (-offset_from_partition);
   }
 
   /* Check if num_bytes goes beyond partition end. If so, don't read beyond
    * this boundary -- do a partial I/O instead.
    */
-  if (num_bytes > (size_t)(partition_size - offset_from_partition))
-    *out_num_read = partition_size - offset_from_partition;
+  if (num_bytes > (size_t)(part_size - offset_from_partition))
+    *out_num_read = part_size - offset_from_partition;
   else
     *out_num_read = num_bytes;
 
-  efi_ret = uefi_call_wrapper(
-      gpart.dio->ReadDisk,
-      5,
-      gpart.dio,
-      gpart.bio->Media->MediaId,
-      (gpart.part.starting_lba * gpart.bio->Media->BlockSize) +
-          offset_from_partition,
-      *out_num_read,
-      buf);
+  efi_ret = read_partition(&gpart, offset_from_partition, *out_num_read, buf);
   if (EFI_ERROR(efi_ret)) {
     avb_error("Could not read from Disk.\n");
     *out_num_read = 0;
@@ -112,8 +101,6 @@ static AvbIOResult write_to_partition(__attribute__((unused)) AvbOps* ops,
                                       size_t num_bytes,
                                       const void* buf) {
   EFI_STATUS efi_ret;
-  struct gpt_partition_interface gpart;
-  uint64_t partition_size;
   const CHAR16 * label;
 
   avb_assert(partition_name != NULL);
@@ -125,42 +112,7 @@ static AvbIOResult write_to_partition(__attribute__((unused)) AvbOps* ops,
     return AVB_IO_RESULT_ERROR_OOM;
   }
 
-  efi_ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
-  if (EFI_ERROR(efi_ret)) {
-    error(L"Partition %s not found", label);
-    return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
-  }
-
-  partition_size =
-      (gpart.part.ending_lba - gpart.part.starting_lba + 1) *
-      gpart.bio->Media->BlockSize;
-
-  if (offset_from_partition < 0) {
-    if ((-offset_from_partition) > (int)partition_size) {
-      avb_error("Offset outside range.\n");
-      return AVB_IO_RESULT_ERROR_RANGE_OUTSIDE_PARTITION;
-    }
-    offset_from_partition = partition_size - (-offset_from_partition);
-  }
-
-  /* Check if num_bytes goes beyond partition end. If so, error out -- no
-   * partial I/O.
-   */
-  if (num_bytes > partition_size - offset_from_partition) {
-    avb_error("Cannot write beyond partition boundary.\n");
-    return AVB_IO_RESULT_ERROR_RANGE_OUTSIDE_PARTITION;
-  }
-
-  efi_ret = uefi_call_wrapper(
-      gpart.dio->WriteDisk,
-      5,
-      gpart.dio,
-      gpart.bio->Media->MediaId,
-      (gpart.part.starting_lba * gpart.bio->Media->BlockSize) +
-          offset_from_partition,
-      num_bytes,
-      (void *)buf);
-
+  efi_ret = write_partition_by_label(label, offset_from_partition, num_bytes, (void *)buf);
   if (EFI_ERROR(efi_ret)) {
     avb_error("Could not write to Disk.\n");
     return AVB_IO_RESULT_ERROR_IO;

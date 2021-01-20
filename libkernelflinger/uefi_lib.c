@@ -31,6 +31,8 @@
 #include "uefi_lib.h"
 #include "lib.h"
 
+#include "lib.h"
+
 EFI_STATUS get_loaded_image_protocol(EFI_LOADED_IMAGE **loaded_image)
 {
 	EFI_STATUS ret;

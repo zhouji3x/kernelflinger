@@ -166,21 +166,9 @@ static void cmd_lock(__attribute__((__unused__)) INTN argc,
 static BOOLEAN frp_allows_unlock()
 {
 	UINT8 persist_byte;
-	struct gpt_partition_interface gparti;
 	EFI_STATUS ret;
-	UINT64 offset;
 
-	ret = gpt_get_partition_by_label(L"persistent", &gparti, LOGICAL_UNIT_USER);
-	if (EFI_ERROR(ret))
-		return TRUE;	/* Allow if the persistent partition
-				   does not exist */
-
-	/* We need to check the last byte of the partition. The gparti
-	 * .dio object is a handle to the beginning of the disk */
-	offset = ((gparti.part.ending_lba + 1) * gparti.bio->Media->BlockSize) - 1;
-	ret = uefi_call_wrapper(gparti.dio->ReadDisk, 5, gparti.dio,
-				gparti.bio->Media->MediaId, offset,
-				sizeof(persist_byte), &persist_byte);
+	ret = read_partition_by_label(L"persistent", -1, sizeof(persist_byte), &persist_byte);
 	if (EFI_ERROR(ret)) {
 		/* Pathological if this fails, GPT screwed up? */
 		efi_perror(ret, L"Couldn't read persistent partition");

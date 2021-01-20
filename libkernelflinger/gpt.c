@@ -916,3 +916,104 @@ EFI_STATUS gpt_get_partitions(struct gpt_partition **partitions, UINTN *size, lo
 
 	return memcpy_s(*partitions, *size, sdisk.partitions, *size);
 }
+
+UINT64 partition_size(struct gpt_partition_interface *gparti)
+{
+	return (gparti->part.ending_lba + 1 - gparti->part.starting_lba) *
+		gparti->bio->Media->BlockSize;
+}
+
+UINT64 partition_start(struct gpt_partition_interface *gparti)
+{
+	return gparti->part.starting_lba * gparti->bio->Media->BlockSize;
+}
+
+UINT64 get_partition_size_by_label(const CHAR16 *label)
+{
+	EFI_STATUS ret;
+	struct gpt_partition_interface gpart;
+
+	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Partition %s not found", label);
+		return 0;
+	}
+
+	return partition_size(&gpart);
+}
+
+EFI_STATUS read_partition(struct gpt_partition_interface *gparti, INT64 offset, UINT64 len, void *data)
+{
+	UINT64 partlen;
+	UINT64 partoffset;
+	EFI_STATUS ret;
+
+	partlen = partition_size(gparti);
+	partoffset = gparti->part.starting_lba * gparti->bio->Media->BlockSize;
+	if(offset < 0)
+		offset += partlen;
+	if (offset < 0 || len + offset > partlen) {
+		debug(L"attempt to read outside of partition %s, (len %lld offset %lld partition len %lld)",
+			gparti->part.name, len, offset, partlen);
+		return EFI_END_OF_MEDIA;
+	}
+
+	ret = gparti->dio->ReadDisk(gparti->dio, gparti->bio->Media->MediaId,
+		partoffset + offset, len, data);
+	if (EFI_ERROR(ret))
+		efi_perror(ret, L"read partition %s failed", gparti->part.name);
+
+	return ret;
+}
+
+EFI_STATUS write_partition(struct gpt_partition_interface *gparti, INT64 offset, UINT64 len, void *data)
+{
+	UINT64 partlen;
+	UINT64 partoffset;
+	EFI_STATUS ret;
+
+	partlen = partition_size(gparti);
+	partoffset = gparti->part.starting_lba * gparti->bio->Media->BlockSize;
+	if(offset < 0)
+		offset += partlen;
+	if (offset < 0 || len + offset > partlen) {
+		debug(L"attempt to write outside of partition %s, (len %lld offset %lld partition len %lld)",
+			gparti->part.name, len, offset, partlen);
+		return EFI_END_OF_MEDIA;
+	}
+
+	ret = gparti->dio->WriteDisk(gparti->dio, gparti->bio->Media->MediaId,
+		partoffset + offset, len, data);
+	if (EFI_ERROR(ret))
+		efi_perror(ret, L"write partition %s failed", gparti->part.name);
+
+	return ret;
+}
+
+EFI_STATUS read_partition_by_label(const CHAR16 *label, INT64 offset, UINT64 len, void *data)
+{
+	EFI_STATUS ret;
+	struct gpt_partition_interface gpart;
+
+	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Partition %s not found", label);
+		return ret;
+	}
+
+	return read_partition(&gpart, offset, len, data);
+}
+
+EFI_STATUS write_partition_by_label(const CHAR16 *label, INT64 offset, UINT64 len, void *data)
+{
+	EFI_STATUS ret;
+	struct gpt_partition_interface gpart;
+
+	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
+	if (EFI_ERROR(ret)) {
+		efi_perror(ret, L"Partition %s not found", label);
+		return ret;
+	}
+
+	return write_partition(&gpart, offset, len, data);
+}

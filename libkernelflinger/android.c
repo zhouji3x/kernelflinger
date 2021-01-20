@@ -1644,19 +1644,9 @@ EFI_STATUS read_bcb(
                 OUT struct bootloader_message *bcb)
 {
         EFI_STATUS ret;
-        struct gpt_partition_interface gpart;
-        UINT64 partition_start;
-
-        debug(L"Locating BCB");
-        ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
-        if (EFI_ERROR(ret))
-                return EFI_INVALID_PARAMETER;
-        partition_start = gpart.part.starting_lba * gpart.bio->Media->BlockSize;
 
         debug(L"Reading BCB");
-        ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio,
-                                gpart.bio->Media->MediaId,
-                                partition_start, sizeof(*bcb), bcb);
+        ret = read_partition_by_label(label, 0, sizeof(*bcb), bcb);
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"ReadDisk (bcb)");
                 return ret;
@@ -1675,19 +1665,9 @@ EFI_STATUS write_bcb(
                 IN struct bootloader_message *bcb)
 {
         EFI_STATUS ret;
-        struct gpt_partition_interface gpart;
-        UINT64 partition_start;
-
-        debug(L"Locating BCB");
-        ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
-        if (EFI_ERROR(ret))
-                return EFI_INVALID_PARAMETER;
-        partition_start = gpart.part.starting_lba * gpart.bio->Media->BlockSize;
 
         debug(L"Writing BCB");
-        ret = uefi_call_wrapper(gpart.dio->WriteDisk, 5, gpart.dio,
-                                gpart.bio->Media->MediaId,
-                                partition_start, sizeof(*bcb), bcb);
+        ret = write_partition_by_label(label, 0, sizeof(*bcb), bcb);
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"WriteDisk (bcb)");
                 return ret;

@@ -87,13 +87,10 @@ static UINT8 acpi_csum(VOID *base, UINT32 n)
 
 EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO *acpi_info)
 {
-	UINT32 MediaId;
 	EFI_STATUS ret;
 	struct dt_table_header aosp_header;
 	UINT32 magic;
 	UINT32 img_size;
-	UINT64 partition_size;
-	UINT64 partition_start;
 	struct gpt_partition_interface gpart;
 
 	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
@@ -101,13 +98,8 @@ EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO *acpi_inf
 		efi_perror(ret, L"Partition %s not found", label);
 		return ret;
 	}
-	MediaId = gpart.bio->Media->MediaId;
-	partition_start = gpart.part.starting_lba * gpart.bio->Media->BlockSize;
-	partition_size = (gpart.part.ending_lba + 1 - gpart.part.starting_lba) *
-		gpart.bio->Media->BlockSize;
-	debug(L"Reading %s image header", label);
-	ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, MediaId,
-				partition_start, sizeof(aosp_header), &aosp_header);
+
+	ret = read_partition(&gpart, 0, sizeof(aosp_header), &aosp_header);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"ReadDisk (%s_header)", label);
 		return ret;
@@ -137,30 +129,24 @@ EFI_STATUS acpi_image_get_length(const CHAR16 *label, struct ACPI_INFO *acpi_inf
 		return EFI_INVALID_PARAMETER;
 	}
 
-	if (img_size > partition_size) {
+	if (img_size > partition_size(&gpart)) {
 		error(L"%s image is larger than partition size", label);
 		return EFI_INVALID_PARAMETER;
 	}
 
 	acpi_info->img_size = img_size;
-	acpi_info->MediaId = MediaId;
-	acpi_info->partition_start = partition_start;
-	acpi_info->partition_size = partition_size;
+	acpi_info->MediaId = gpart.bio->Media->MediaId;
+	acpi_info->partition_start = partition_start(&gpart);
+	acpi_info->partition_size = partition_size(&gpart);
 	return EFI_SUCCESS;
 }
 
 static EFI_STATUS acpi_image_load_partition(const CHAR16 *label, VOID **image)
 {
 	EFI_STATUS ret;
-	struct gpt_partition_interface gpart;
 	VOID *acpiimage;
 	struct ACPI_INFO acpi_info;
 
-	ret = gpt_get_partition_by_label(label, &gpart, LOGICAL_UNIT_USER);
-	if (EFI_ERROR(ret)) {
-		efi_perror(ret, L"Partition %s not found", label);
-		return ret;
-	}
 	ret = acpi_image_get_length(label, &acpi_info);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"Partition %s can't get size", label);
@@ -173,8 +159,7 @@ static EFI_STATUS acpi_image_load_partition(const CHAR16 *label, VOID **image)
 		return EFI_OUT_OF_RESOURCES;
 	}
 	debug(L"Reading %s image: %d bytes", label, acpi_info.img_size);
-	ret = uefi_call_wrapper(gpart.dio->ReadDisk, 5, gpart.dio, acpi_info.MediaId,
-				acpi_info.partition_start, acpi_info.img_size, acpiimage);
+	ret = read_partition_by_label(label, 0, acpi_info.img_size, acpiimage);
 	if (EFI_ERROR(ret)) {
 		efi_perror(ret, L"ReadDisk Error for %s image read", label);
 		FreePool(acpiimage);
