@@ -44,7 +44,7 @@
 #include "gpt.h"
 #include "efilinux.h"
 
-EFI_STATUS load_tos_image(OUT VOID **bootimage)
+EFI_STATUS load_tos_image(OUT VOID **tosimage)
 {
         EFI_STATUS ret;
         UINT8 verify_state = BOOT_STATE_GREEN;
@@ -61,26 +61,20 @@ EFI_STATUS load_tos_image(OUT VOID **bootimage)
 
         verify_state_new = verify_state;
 
-        ret = android_image_load_partition_avb("tos", bootimage, &verify_state_new, &slot_data);  // Do not try to switch slot if failed
+        ret = android_image_load_partition_avb("tos", tosimage, &verify_state_new, &slot_data);  // Do not try to switch slot if failed
         if (EFI_ERROR(ret)) {
                 efi_perror(ret, L"TOS image loading failed");
                 return ret;
         }
 
-        if (verify_state != verify_state_new) {
-#ifndef USERDEBUG
-                error(L"Invalid TOS image. Boot anyway on ENG build");
-                ret = EFI_SUCCESS;
-#else
-                if (b_secureboot) {
-                        error(L"TOS image doesn't verify, stop since secure boot enabled");
-                        ret = EFI_SECURITY_VIOLATION;
-                } else {
-                        error(L"TOS image doesn't verify, continue since secure boot disabled");
-                        ret = EFI_SUCCESS;
-                }
-#endif
-        }
+        if (verify_state_new != verify_state)
+            warning(L"TOS verify state '%s' do not meet required state '%s'\n",
+                boot_state_to_string(verify_state_new), boot_state_to_string(verify_state));
 
-        return ret;
+#ifndef USERDEBUG
+        if (verify_state_new == BOOT_STATE_RED)
+            return EFI_SECURITY_VIOLATION;
+#endif
+
+        return EFI_SUCCESS;
 }
