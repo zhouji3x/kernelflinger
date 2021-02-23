@@ -576,8 +576,7 @@ static EFI_STATUS setup_ramdisk(UINT8 *bootimage, UINT8 *vendorbootimage)
             struct vendor_boot_img_hdr_v3 *vendor_hdr = (struct vendor_boot_img_hdr_v3 *)vendorbootimage;
             struct boot_img_hdr_v3 *boot_hdr = (struct boot_img_hdr_v3 *)bootimage;
 
-            uint32_t page_size = vendor_hdr->page_size;
-            roffset = BOOT_IMG_HEADER_SIZE_V3 + ALIGN(boot_hdr->kernel_size, page_size);
+            roffset = BOOT_IMG_HEADER_SIZE_V3 + ALIGN(boot_hdr->kernel_size, BOOT_IMG_HEADER_SIZE_V3);
             rsize = boot_hdr->ramdisk_size + vendor_hdr->vendor_ramdisk_size;
             if (!rsize) {
                 debug(L"boot image has no ramdisk");
