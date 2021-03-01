@@ -103,4 +103,9 @@ EFI_STATUS gpt_get_partition_handle(const CHAR16 *label, logical_unit_t log_unit
 EFI_STATUS gpt_get_header(struct gpt_header **header, UINTN *size, logical_unit_t log_unit);
 EFI_STATUS gpt_get_partitions(struct gpt_partition **partitions, UINTN *size, logical_unit_t log_unit);
 
+UINT64 get_partition_start(struct gpt_partition_interface *gparti);
+UINT64 get_partition_size(struct gpt_partition_interface *gparti);
+UINT64 get_partition_size_by_label(const CHAR16 *label);
+EFI_STATUS read_partition(struct gpt_partition_interface *gparti, INT64 offset, UINT64 len, void *data);
+EFI_STATUS read_partition_by_label(const CHAR16 *label, INT64 offset, UINT64 len, void *data);
 #endif	/* _GPT_H_ */
