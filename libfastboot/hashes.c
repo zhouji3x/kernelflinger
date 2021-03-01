@@ -381,30 +381,6 @@ struct fec_header {
 	/* [...] */
 };
 
-static UINT64 part_size(struct gpt_partition_interface *gparti)
-{
-	return (gparti->part.ending_lba + 1 - gparti->part.starting_lba) *
-		gparti->bio->Media->BlockSize;
-}
-
-static EFI_STATUS read_partition(struct gpt_partition_interface *gparti, UINT64 offset, UINT64 len, void *data)
-{
-	UINT64 partlen;
-	UINT64 partoffset;
-	EFI_STATUS ret;
-
-	partlen = part_size(gparti);
-	partoffset = gparti->part.starting_lba * gparti->bio->Media->BlockSize;
-
-	if (len + offset > partlen) {
-		debug(L"attempt to read outside of partition %s, (len %lld offset %lld partition len %lld)", gparti->part.name, len, offset, partlen);
-		return EFI_END_OF_MEDIA;
-	}
-	ret = uefi_call_wrapper(gparti->dio->ReadDisk, 5, gparti->dio, gparti->bio->Media->MediaId, partoffset + offset, len, data);
-	if (EFI_ERROR(ret))
-		efi_perror(ret, L"read partition %s failed", gparti->part.name);
-	return ret;
-}
 
 #define CHUNK 1024 * 1024
 #define MIN(a, b) ((a < b) ? (a) : (b))
@@ -616,7 +592,7 @@ EFI_STATUS get_boot_image_hash(const CHAR16 *label)
 		return ret;
 	}
 
-	len = part_size(&gparti);
+	len = get_partition_size(&gparti);
 	if (!StrnCmp(label, L"boot_", 5)) {
 		if (len >= BOARD_BOOTIMAGE_PARTITION_SIZE)
 			len = BOARD_BOOTIMAGE_PARTITION_SIZE;
@@ -726,7 +702,7 @@ EFI_STATUS get_super_image_hash(const CHAR16 *label)
 		return ret;
 	}
 
-	len = part_size(&gpart);
+	len = get_partition_size(&gpart);
 	ret = hash_partition(&gpart, len, hash);
 	if (EFI_ERROR(ret)) {
 		return ret;
@@ -772,7 +748,7 @@ EFI_STATUS get_fs_hash(const CHAR16 *label)
 	}
 
 	if (strcmp((CHAR8*)SUPPORTED_FS[i].name, (CHAR8*)"Ias"))
-		fs_len = part_size(&gparti);
+		fs_len = get_partition_size(&gparti);
 	debug(L"filesystem size %lld", fs_len);
 
 	ret = hash_partition(&gparti, fs_len, hash);
