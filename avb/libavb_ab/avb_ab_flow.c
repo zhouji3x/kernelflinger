@@ -152,12 +152,6 @@ static void slot_normalize(AvbABSlotData* slot) {
       /* We've exhausted all tries -> unbootable. */
       slot_set_unbootable(slot);
     }
-    if (slot->tries_remaining > 1 && slot->successful_boot) {
-      /* Illegal state - avb_ab_mark_slot_successful() will set
-       * tries_remaining to 1 when setting successful_boot.
-       */
-      slot_set_unbootable(slot);
-    }
   } else {
     slot_set_unbootable(slot);
   }
